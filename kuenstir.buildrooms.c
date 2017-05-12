@@ -174,7 +174,7 @@ void newFileForRoom(struct room currentRoom){
 
 
 	//close the file
-	//fclose(pointerToNewFile);
+	fclose(pointerToNewFile);
 	return;
 }
 

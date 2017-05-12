@@ -16,12 +16,19 @@
 #include <sys/types.h>
 #include <unistd.h> //lets us access the process ID
 #include <sys/stat.h> //needed for mkdir according to http://www.gnu.org/software/libc/manual/html_node/Creating-Directories.html
+#include <pthread.h> //for mutex
 
 //exit codes
 #define SOMETHING_WENT_WRONG    1
 #define ITS_ALL_GRAVY           0
 //8 rooms this time to sync with filenames. Room 0 does not exist in game.
 #define NUMBER_OF_ROOMS         8
+
+pthread_mutex_t annoyingMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_t game;
+pthread_t mtime;
+int notGame;
+int notTime;
 
 //Variables. Figure out how to use this info from files
 char newestDirName[64];
@@ -316,29 +323,47 @@ int hereNow(){
             }
     }
         printf("\n");
-        return 0;
+        exit(ITS_ALL_GRAVY);
     }
-    printf("\nCURRENT LOCATION:\t%s\n", currentRoom.roomName);
-    printf("POSSIBLE CONNECTIONS:\t");
+    printf("\nCURRENT LOCATION: %s\n", currentRoom.roomName);
+    printf("POSSIBLE CONNECTIONS: ");
         int x;
         for(x = 0; x < currentRoom.numberOfDoors; x++){
             printf("%s", currentRoom.doorNames[x]);
             if(x != (currentRoom.numberOfDoors-1)){
                 printf(", ");
             }
+            else{
+                printf(".");
+            }
         }
         printf("\n");
         return 1;
 }
 
+void* getTheTime(){
+
+    pthread_mutex_lock(&annoyingMutex);
+
+    time_t systemTime;
+    systemTime = time(NULL);
+    printf("\n");
+    printf(ctime(&systemTime));
+
+    pthread_mutex_unlock(&annoyingMutex);
+    return NULL;
+}
+
 int prompt(int current){
-    printf("\nWHERE TO?\t>");
+    printf("WHERE TO? >");
     char move[16];
     scanf("%s", &move);
 
     if (strcmp(move, "time") == 0){
-        //handle this later
-        printf("GAME TIME!!!");
+        //print the time for the user
+        pthread_mutex_unlock(&annoyingMutex);
+        getTheTime();
+        pthread_mutex_lock(&annoyingMutex);
         return current;
     }
 
@@ -385,7 +410,9 @@ int prompt(int current){
 }
 
 
-int main(){
+void* doTheGame(){
+    pthread_mutex_lock(&annoyingMutex);
+    notTime = pthread_create(&mtime, NULL, getTheTime, NULL);
     printf("\t* ******************** *\n");
     printf("\t*                      *\n");
     printf("\t*    ADVENTURE GAME    *\n");
@@ -428,6 +455,14 @@ int main(){
             current = newCur;
         }
     }
+    pthread_mutex_unlock(&annoyingMutex);
+    return;
+}
+
+int main(){
+    notGame = pthread_create(&game, NULL, doTheGame, NULL);
+    doTheGame();
+    pthread_join(game,NULL);
 
     return ITS_ALL_GRAVY;
 }
